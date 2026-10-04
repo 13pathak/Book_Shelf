@@ -1,0 +1,3 @@
+# Optional. Your key stays on the local server. Restart after changing this file.
+OPENAI_API_KEY=
+OPENAI_VISION_MODEL=gpt-5.4-mini
