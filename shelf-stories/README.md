@@ -1,126 +1,129 @@
-# vinext-starter
+# Shelf & Story
 
-A clean full-stack starter running on [vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and Drizzle support.
+A local school-library explorer with ERP import, interactive bookshelves, real-photo book maps, circulation updates, and book information lookup.
 
-## Prerequisites
+## Open the app
 
-- Node.js `>=22.13.0`
-- Portable: Windows, macOS, or Linux; no Bash required
-- Managed Linux: managed Linux runtime with Bash, `flock`, `curl`, `sha256sum`, and GNU `timeout`
-- Git is required only for publishing
+The development server runs at http://127.0.0.1:5173/.
 
-## Sites Lifecycle
+To restart on Windows, double-click **Start-Library.cmd** in this folder. Keep its terminal open while testing; press Ctrl+C to stop it. Node.js 22.13 or newer is required. The launcher installs dependencies if needed and prepares the local database on first use.
 
-The Sites initializer copies the shared starter and selects managed-linux only when `SITES_MANAGED_LINUX_CONTAINER=1`; otherwise it selects portable. It saves the selection only in ignored `.sites-runtime/execution-profile.json`. Both profiles copy/configure first, then use the plugin's separate `install-dependencies.mjs` step to measure installation independently. Edit source under `app/` and follow the Sites skill for installation, preview, builds, and publishing.
+Manual commands:
 
-Run `node <plugin-root>/scripts/configure-execution-profile.mjs` only when the profile is unknown for the current checkout and environment. Profile changes do not alter tracked source or require reinstalling otherwise-valid dependencies; restart an existing preview to use the new selection. Do not commit or upload `.sites-runtime/`.
-
-This starter does not use `wrangler.jsonc`.
-
-`install:ci` runs `npm ci` once against the shared lockfile, disables parent-workspace discovery, and includes required dev/optional dependencies despite production/omit settings. Sharp defaults to prebuilt binaries unless explicitly configured otherwise. Do not overlap installers.
-
-- **Portable:** Preserve host HOME, npm cache, registry, proxy, temporary paths, retry/concurrency settings, and lifecycle-script policy. Use `--prefer-offline --no-audit --no-fund`.
-- **Managed Linux:** Use the existing project-local HOME/cache/tmp setup and Linux install lock, tarball preflight, and timeout. Restore the image-seeded npm cache only when its lockfile hash matches; retain network fallback. Builds keep their existing timeout. These helpers are not invoked by the portable profile.
-
-`scripts/sites-env.mjs` preserves the caller's HOME, npm cache, proxy, XDG, and temporary-directory configuration while defaulting Wrangler and Miniflare state to the checkout. If npm reports an unwritable cache, select a writable path with `npm_config_cache` for that install. The `dev` and `start` scripts also keep Wrangler logs inside the checkout. Generated `.sites-runtime/` and `.wrangler/` directories are disposable and ignored by Git.
-
-On portable, `npm run dev` uses `vinext dev` with HMR, starting at port 5173. Vinext records the running server in ignored `.vinext/` state, rejects an ordinary duplicate launch, and recovers stale state after a stopped process; exactly simultaneous starts can race. Pass `--port <port>` or `--hostname <host>` after `npm run dev --` when needed; keep portable previews on loopback.
-
-For browser QA on managed Linux, use `sites-preview start`. The project's dev script runs Vite and accepts the supervisor's `--host 0.0.0.0 --port 4173 --strictPort` arguments. The internal browser uses `http://terminal.local:4173/`; it is not a user-facing URL. The supervisor owns the preview lifecycle. The ignored local profile survives the supervisor's cleared process environment.
-
-The portable profile simulates ChatGPT sign-in only for loopback development requests. Visit `/signin-with-chatgpt?return_to=/` to sign in as `local_seedy` (`seedy@sites.test`, display name `Seedy`) and `/signout-with-chatgpt?return_to=/` to sign out. The development cookie preserves that identity across server restarts. Mock auth is disabled in the managed-linux profile and is not included in production builds; hosted authentication remains dispatch-owned.
-
-The Worker uses `vinext/server/fetch-handler`, including Vinext's config-aware image handling. After building, `npm start` runs that Worker locally through Wrangler on `127.0.0.1`, sharing `.wrangler/state` with dev preview and local D1 migrations; it does not deploy the site or simulate sign-in. Use the URL printed by the server. Pass `npm start -- --port <port>` to select a different built-preview port.
-
-Local previews use Miniflare's placeholder `Request.cf` metadata without a network lookup. Set `CLOUDFLARE_CF_FETCH_ENABLED=true` to opt into fetching preview metadata; this setting does not change hosted request metadata.
-
-Local tool usage metrics are disabled by default. Set `WRANGLER_SEND_METRICS=true` to opt in.
-
-## Included Shape
-
-- edit site code under `app/`
-- `app/chatgpt-auth.ts` provides optional dispatch-owned ChatGPT sign-in helpers
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-- `db/index.ts` reads the D1 binding from the Cloudflare Worker environment
-- `db/schema.ts` starts intentionally empty
-- `@cloudflare/workers-types` provides Worker types; `cloudflare-env.d.ts` declares optional `DB`/`BUCKET` bindings—update these declarations if binding names change
-- `examples/d1/` contains an optional D1 example surface
-- `drizzle.config.ts` supports local migration generation when needed
-
-## Workspace Auth Headers
-
-Signed-in visitors receive both `oai-authenticated-user-id` and `oai-authenticated-user-email`. Private Sites require every visitor to sign in; public Sites may also have anonymous visitors, for whom neither header is present.
-
-The user ID is stable for the same user on the same Site and different across Sites. Use it as the durable user key; use email and name for display or contact purposes.
-
-SIWC-authenticated workspace sites may also receive `oai-authenticated-user-full-name` when the user's SIWC profile has a non-empty `name` claim. The full-name value is percent-encoded UTF-8 and is accompanied by `oai-authenticated-user-full-name-encoding: percent-encoded-utf-8`.
-
-Treat the full name as optional and fall back to email when it is absent:
-
-```tsx
-import { headers } from "next/headers";
-
-export default async function Home() {
-  const requestHeaders = await headers();
-  const userId = requestHeaders.get("oai-authenticated-user-id");
-  const email = requestHeaders.get("oai-authenticated-user-email");
-  const encodedFullName = requestHeaders.get("oai-authenticated-user-full-name");
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get("oai-authenticated-user-full-name-encoding") ===
-      "percent-encoded-utf-8"
-      ? decodeURIComponent(encodedFullName)
-      : null;
-
-  const displayName = fullName ?? email;
-  // ...
-}
+```powershell
+npm ci
+node scripts/setup-local.mjs
+npm run dev
 ```
 
-## Optional Dispatch-Owned ChatGPT Sign-In
+This is a local prototype, not an online deployment. The librarian desk has no password and is intended for trusted use on this computer. Library APIs reject requests for non-loopback hostnames. Authentication, student access, backups and shared hosting must be configured before an online launch.
 
-Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs optional or required ChatGPT sign-in:
+## Start with your school ERP
 
-- Use `getChatGPTUser()` for optional signed-in UI.
-- Use the returned `userId` as the stable user key for user-owned records; do not use email as a durable identifier.
-- Use `requireChatGPTUser(returnTo)` for server-rendered pages that should send anonymous visitors through Sign in with ChatGPT.
-- In a Server Component, start sign-in with `<a href={chatGPTSignInPath(returnTo)} target="_top">`. The auth helper module is server-only; do not import it into a Client Component.
-- Do not use `fetch`, XHR, a client-side router, or a framework link that can prefetch the sign-in route. SIWC must start as a top-level navigation.
-- Never request the AuthAPI authorization endpoint directly. The dispatch-owned `/signin-with-chatgpt` route must start the SIWC flow.
-- Use `chatGPTSignOutPath(returnTo)` for browser sign-out links or actions.
-- Pass a same-origin relative `returnTo` path for the destination after sign-in or sign-out. The helper validates and safely encodes it.
-- Mark protected pages with `export const dynamic = "force-dynamic"` because they depend on per-request identity headers.
+Open **Import ERP list** or **Librarian desk → Import ERP catalogue**.
 
-Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the OAuth cookies, and identity header injection. Do not implement app routes for those reserved paths. Routes that do not import and call the helper remain anonymous-compatible.
+1. Upload the accession/book register as **.xls, .xlsx, .csv or .tsv**. Genuine legacy Excel .xls files are supported directly. One row must represent one physical copy with its own accession ID.
+2. Choose a worksheet and the header row. Common headings are detected automatically. A report title above the table is supported.
+3. Match fields to columns. Accession ID and book title are required. Author, ISBN, category, shelf, location, position, summary, suggested age, language, publisher, year, price, page description, availability and expected return are optional.
+4. Review new, updated and unchanged copies, warnings, and changes from the existing record. Fix errors before applying. The source file is never edited.
+5. Import. Column mappings are remembered on this browser when the next file has the same headings.
 
-SIWC establishes identity only; it does not prove workspace membership. Use the Sites hosting platform's access policy controls for workspace-wide restrictions, or enforce explicit server-side membership or allowlist checks.
+### Your supplied Library Book.xls
 
-Use SIWC for account pages, user-specific dashboards, saved records, and write actions tied to the current ChatGPT user. Leave public content anonymous.
+The supplied 979-copy catalogue is loaded in the local preview. The previous sample library is backed up in `outputs/library-before-erp-import.json` and can be restored through **Backup & restore**. Import findings are saved in `outputs/library-import-report.json`. The original .xls file is unchanged.
 
-## Local D1 migrations
+Verified worksheet **Books**, headings on **row 7**, **979 copies**, 979 unique accession IDs, and 939 distinct titles. Accession IDs such as `SIV/1` retain their slash and full text. Repeated titles remain separate copies.
 
-For a D1-backed local preview, generate SQL with `npm run db:generate`. Build once through the Sites skill's build entrypoint (or `npm run build` for standalone use) to generate `dist/server/wrangler.json`, rebuilding if bindings change. From the project root, apply each pending migration in order:
+Automatically recognized columns:
 
-```sh
-node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_example.sql
+- Book Name → title
+- Accession No. → physical copy ID
+- Author Name → author (surrounding whitespace trimmed)
+- Publisher Name → publisher
+- Year of Publication → publication year
+- Price → price as exported (no currency assumed)
+- Page No → page count or original description
+
+Sr. No. is report numbering, not the book ID. The file has no shelf, availability, genre, ISBN, age or summary columns. New copies therefore default to **Check with librarian**, and unassigned copies go to **ERP catalogue · not mapped yet**. They are not counted as available until circulation data or a librarian confirms their status.
+
+The source has 205 missing authors and a publication year `20102` for `SIV/184`. The importer flags the year while preserving the original value. Page descriptions such as `approximately 24 pages` are retained.
+
+### Import rules
+
+- Match existing records by accession ID, case-insensitively. Keep the stored ID spelling.
+- Never merge copies by title or ISBN.
+- Duplicate accession IDs and malformed required fields block import. An error report can be downloaded.
+- Records omitted from a later export remain in the library.
+- Blank optional cells and unmapped fields preserve existing values.
+- Existing circulation status and expected return remain unchanged unless **Update existing copies’ availability** is checked.
+- Existing photo outlines remain unless an explicit shelf change moves the copy. Shelf moves are flagged in review and clear the old outline.
+- Sample books can be removed during import with an explicit checkbox.
+- Import up to 5,000 copies and 100 shelves in this local version; files must be under 8 MB. Large result sets are paginated.
+- Workbook macros are not executed; formulas are not recalculated. Missing cached formula results and spreadsheet error cells are rejected.
+- This is export-based ERP integration. A direct ERP API connection has not been configured.
+
+## Add real shelf photos
+
+Choose **Add shelf photo**, or **Librarian desk → Shelf photos** to edit an existing shelf. Use a well-lit, straight-on JPG, PNG or WebP, up to 20 MB. The browser resizes it before local storage.
+
+Drag an outline over a book. Select its accession ID from the existing catalogue to map that physical copy. Existing IDs are locked in the photo editor. You can also draw a new outline and use **Link this outline to an ERP / existing copy**. This keeps the ERP metadata and current circulation status. Search by title, author, ISBN or accession ID. If there are multiple copies, choose the correct accession explicitly.
+
+Save the reviewed shelf, then use **Photo twin** in the student view. Outlined books are clickable and show current status. The digital bookshelf and Covers views also show the imported catalogue without requiring photos. A picture alone does not prove availability, since issued books may be absent.
+
+### Optional AI book recognition
+
+Manual photo mapping and ERP import work without API keys. Automatic spine recognition needs an OpenAI API key:
+
+1. Copy `.dev.vars.example` to `.dev.vars` in this folder.
+2. Set `OPENAI_API_KEY` and optionally `OPENAI_VISION_MODEL` (default `gpt-5.4-mini`).
+3. Restart the server.
+4. In the photo editor, click **Identify books with AI**. This sends that photo to OpenAI and can incur API charges. The key stays on the local server and is never sent to the browser.
+5. Review every suggested title and outline, then link drafts to existing ERP accessions. Unreadable books are explicitly marked. The AI step does not silently overwrite the catalogue.
+
+Recognition needs internet access, readable spines and human review. The no-key error path has been tested; a live AI recognition request has not been verified without a key.
+
+## Daily issue / return data
+
+Use **Librarian desk → Issue & return**. Upload .xls, .xlsx, CSV or TSV; choose worksheet/header and map accession ID, action/status and optional due date. Accepted actions include Issue / Issued / Borrowed and Return / Returned / Available. Dates should be `YYYY-MM-DD` or genuine Excel date cells.
+
+Use one final status per copy per upload. Unknown IDs, duplicates and invalid dates block applying the file. Fix the source and upload again. Books omitted from the file retain their status. A successful import can be undone during the same desk session until another catalogue edit is made. Import history is retained. Student/borrower names and other unmapped fields are not saved.
+
+Open student views refresh library data every 30 seconds. Expected return dates are visible; borrower identities are not stored. A date passing does not automatically make an issued copy available.
+
+## Book details and reading lists
+
+Students can search by title, author, genre or accession, filter available books, browse spines/covers/photos, and save a personal reading list on the current browser. A saved book is not a reservation.
+
+**Look up book information** searches Open Library online. Students/librarians choose a matching result rather than accepting the first match. Summaries and subjects are attributed. Librarians may save a selected summary. Some titles have no metadata; local records remain usable when the external service is unavailable. Suggested ages and demo summaries are editorial, not official publisher ratings.
+
+## Saving and backups
+
+Catalogue data is stored in the local SQLite database through the D1 emulator. Shelf photos use local R2 storage. Both persist in `.wrangler/state/` across refreshes and server restarts. Do not delete that folder if you want to keep your library. No data is deployed or uploaded to a host by the setup commands.
+
+**Backup & restore** downloads a JSON backup including records, photos, outlines and import history. Restoring explicitly replaces the library after a review. Reading lists and remembered column mappings remain device/browser preferences.
+
+Use **Export catalogue** to obtain the supported catalogue fields as CSV. Spreadsheet formula-like strings are escaped in the export.
+
+## Validation
+
+```powershell
+npm run typecheck
+npm test
+node tests/library.test.mjs "C:/Users/rampa/Downloads/Library Book.xls"
+npm run build
 ```
 
-Replace the filename with the pending migration and `DB` with your D1 binding name if different. Use `.wrangler/state`, not `.wrangler/state/v3`; Wrangler adds the versioned directories. Do not replay migrations already applied locally. This updates only the preview database; publishing applies production migrations separately.
+`tests/api-smoke.mjs` can check a running local server. It performs an unchanged library save (incrementing its revision) and uploads an unattached test image. It verifies rejection of stale writes, duplicates, cross-origin writes and unsupported images, and confirms photo byte persistence. Do not run it against a future production deployment.
 
-## Diagnostic Commands
+Automatic browser visual/interaction inspection was unavailable in the Codex environment. Manually check desktop/mobile layout, keyboard navigation, importing a file, drawing photo outlines and backup downloads in the local preview before deployment.
 
-- `npm run install:ci`: perform the one locked dependency install
-- `npm run dev`: start the Vite/Vinext development server
-- `npm run build`: build the deployable Sites artifact
-- `npm run start`: preview the built Worker locally with D1/R2 support
-- `npm run db:generate`: generate Drizzle migrations after schema changes
+## Sources and implementation
 
-When using the Sites plugin, follow its skill instructions for installation, builds, and publishing. These npm commands remain available for standalone use.
+React/Vinext, TypeScript, local Cloudflare D1/R2 emulation, Zod validation and SheetJS CE 0.20.3. The official SheetJS package supports both legacy XLS and XLSX. Book metadata is fetched only when requested.
 
-The portable build runs Vinext directly without a host `timeout` command. The managed-linux build uses `scripts/build-verified.sh` and its existing `SITES_BUILD_TIMEOUT` setting.
+- [SheetJS installation](https://docs.sheetjs.com/docs/getting-started/installation/nodejs/)
+- [Open Library APIs](https://openlibrary.org/developers/api)
+- [OpenAI image inputs](https://developers.openai.com/api/docs/guides/images-vision)
+- [OpenAI structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs)
 
-## Learn More
-
-- [vinext Documentation](https://github.com/cloudflare/vinext)
-- [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+Demo book provenance is in `../content/demo-sources.md`; cover provenance is in `../content/covers/cover-sources.json`. Some covers depict another edition of the same title. Uploaded ERP metadata and photos remain authoritative for your library.
